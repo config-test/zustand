@@ -1,0 +1,36 @@
+version: 2.1
+
+jobs:
+  zustand:
+    docker:
+      - image: cimg/node:26.11
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - pnpm-v1-node-26.11-{{ arch }}-{{ checksum "pnpm-lock.yaml" }}
+      - run:
+          name: Install dependencies
+          command: |
+            npm install --global --prefix "$HOME/.local" pnpm@11.3.0
+            export PATH="$HOME/.local/bin:$PATH"
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
+            pnpm install --frozen-lockfile --store-dir "$HOME/.pnpm-store"
+      - save_cache:
+          key: pnpm-v1-node-26.11-{{ arch }}-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.pnpm-store
+      - run:
+          name: Build
+          command: pnpm run build
+      - run:
+          name: Test (specs, types, formatting, and lint)
+          command: pnpm run test
+      - run:
+          name: Lint
+          command: pnpm run test:lint
+
+workflows:
+  ci:
+    jobs:
+      - zustand
