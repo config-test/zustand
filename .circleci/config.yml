@@ -1,0 +1,130 @@
+version: 2.1
+
+# Generated from the repo's own manifests (no .github/workflows present at HEAD).
+# Root project: pnpm (pnpm-lock.yaml + "packageManager": "pnpm@11.3.0").
+# Examples are standalone Vite apps (not pnpm workspace members, no checked-in lockfiles).
+
+jobs:
+  zustand:
+    docker:
+      - image: cimg/node:22.14.0
+    working_directory: ~/project
+    steps:
+      - checkout
+      # Honors the "packageManager" field in package.json (pnpm@11.3.0),
+      # the same way pnpm/action-setup did in the removed GitHub workflow.
+      - run:
+          name: Activate pnpm via corepack
+          command: |
+            sudo corepack enable
+            corepack prepare --activate
+            pnpm config set store-dir .pnpm-store
+            pnpm --version
+      - restore_cache:
+          keys:
+            - v1-pnpm-{{ checksum "pnpm-lock.yaml" }}
+            - v1-pnpm-
+      - run:
+          name: Install dependencies
+          command: pnpm install --frozen-lockfile
+      - save_cache:
+          key: v1-pnpm-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - .pnpm-store
+      - run:
+          name: Check formatting (test:format)
+          command: pnpm run test:format
+      - run:
+          name: Typecheck (test:types)
+          command: pnpm run test:types
+      - run:
+          name: Lint (test:lint)
+          command: pnpm run test:lint
+      - run:
+          name: Unit tests (test:spec)
+          command: pnpm run test:spec --reporter=default --reporter=junit --outputFile.junit=test-results/vitest/results.xml
+      - store_test_results:
+          path: test-results
+      - run:
+          name: Build
+          command: pnpm run build
+      - store_artifacts:
+          path: dist
+          destination: dist
+
+  example-demo:
+    docker:
+      - image: cimg/node:22.14.0
+    working_directory: ~/project/examples/demo
+    steps:
+      - checkout:
+          path: ~/project
+      - run:
+          name: Activate pnpm via corepack
+          command: |
+            sudo corepack enable
+            corepack prepare pnpm@11.3.0 --activate
+            pnpm config set store-dir .pnpm-store
+            pnpm --version
+      # No lockfile is checked in for the examples (see .gitignore), so the
+      # cache is keyed on package.json instead.
+      - restore_cache:
+          keys:
+            - v1-pnpm-demo-{{ checksum "package.json" }}
+            - v1-pnpm-demo-
+      - run:
+          name: Install dependencies
+          command: pnpm install --no-frozen-lockfile
+      - save_cache:
+          key: v1-pnpm-demo-{{ checksum "package.json" }}
+          paths:
+            - .pnpm-store
+      - run:
+          name: Lint
+          command: pnpm run lint
+      - run:
+          name: Build
+          command: pnpm run build
+      - store_artifacts:
+          path: dist
+          destination: examples-demo-dist
+
+  example-starter:
+    docker:
+      - image: cimg/node:22.14.0
+    working_directory: ~/project/examples/starter
+    steps:
+      - checkout:
+          path: ~/project
+      - run:
+          name: Activate pnpm via corepack
+          command: |
+            sudo corepack enable
+            corepack prepare pnpm@11.3.0 --activate
+            pnpm config set store-dir .pnpm-store
+            pnpm --version
+      - restore_cache:
+          keys:
+            - v1-pnpm-starter-{{ checksum "package.json" }}
+            - v1-pnpm-starter-
+      - run:
+          name: Install dependencies
+          command: pnpm install --no-frozen-lockfile
+      - save_cache:
+          key: v1-pnpm-starter-{{ checksum "package.json" }}
+          paths:
+            - .pnpm-store
+      # "starter" defines no lint script; build runs `tsc && vite build`.
+      - run:
+          name: Build
+          command: pnpm run build
+      - store_artifacts:
+          path: dist
+          destination: examples-starter-dist
+
+workflows:
+  ci:
+    jobs:
+      - zustand
+      - example-demo
+      - example-starter
