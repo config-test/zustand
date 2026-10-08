@@ -1,0 +1,35 @@
+version: 2.1
+
+jobs:
+  build-and-test:
+    docker:
+      - image: cimg/node:24.21
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-pnpm-deps-{{ checksum "pnpm-lock.yaml" }}
+      - run:
+          name: Enable pnpm
+          command: |
+            corepack enable
+            corepack prepare pnpm@11.3.0 --activate
+      - run:
+          name: Install dependencies
+          command: pnpm install --frozen-lockfile
+      - save_cache:
+          key: v1-pnpm-deps-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.local/share/pnpm/store/v11
+      - run:
+          name: Build
+          command: pnpm run build
+      - run:
+          name: Test
+          command: pnpm run test
+      # Lint is covered by `pnpm run test` (via test:lint); no separate lint script.
+
+workflows:
+  main:
+    jobs:
+      - build-and-test
