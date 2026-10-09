@@ -1,0 +1,54 @@
+version: 2.1
+
+jobs:
+  zustand:
+    docker:
+      - image: cimg/node:24.21
+    steps:
+      - checkout
+
+      - run:
+          name: Enable pnpm (pinned by the packageManager field)
+          command: |
+            corepack enable pnpm
+            pnpm config set store-dir ~/.pnpm-store
+            pnpm --version
+
+      - restore_cache:
+          keys:
+            - pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+            - pnpm-v1-
+
+      - run:
+          name: Install dependencies
+          command: pnpm install --frozen-lockfile
+
+      - save_cache:
+          key: pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.pnpm-store
+
+      - run:
+          name: Build
+          command: pnpm run build
+
+      - run:
+          name: Test (vitest)
+          command: pnpm run test:spec
+
+      - run:
+          name: Typecheck
+          command: pnpm run test:types
+
+      - run:
+          name: Lint
+          command: pnpm run test:lint
+
+      - run:
+          name: Format check
+          command: pnpm run test:format
+
+workflows:
+  ci:
+    jobs:
+      - zustand
